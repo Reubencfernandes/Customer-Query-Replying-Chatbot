@@ -20,7 +20,371 @@
 }
 
 body {
-  background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+/* ===== AskFlow Custom Animations & Styles ===== */
+
+@keyframes float-top-right {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.55;
+  }
+
+  50% {
+    transform: translate(-4%, 6%) scale(1.12);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translate(3%, -3%) scale(0.92);
+    opacity: 0.45;
+  }
+}
+
+@keyframes float-bottom-left {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.5;
+  }
+
+  50% {
+    transform: translate(5%, -8%) scale(1.08);
+    opacity: 0.65;
+  }
+
+  100% {
+    transform: translate(-3%, 3%) scale(0.95);
+    opacity: 0.45;
+  }
+}
+
+@keyframes float-bottom-right {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: translate(-8%, -5%) scale(1.15);
+    opacity: 0.6;
+  }
+
+  100% {
+    transform: translate(3%, 2%) scale(0.9);
+    opacity: 0.35;
+  }
+}
+
+.animate-ambient-tr {
+  animation: float-top-right 16s ease-in-out infinite alternate;
+}
+
+.animate-ambient-bl {
+  animation: float-bottom-left 18s ease-in-out infinite alternate;
+}
+
+.animate-ambient-br {
+  animation: float-bottom-right 14s ease-in-out infinite alternate;
+}
+
+/* Typography styles for premium SaaS feeling */
+.font-sans-geist {
+  font-family: var(--font-geist-sans), sans-serif;
+}
+
+.gif-clipped-word {
+  background-image: url("https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTIyN2RwbGdkc2w4YWxva3pudHl6M3BtdXV0eW00ZDMzMDdhMzExMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/irCR68lB8tZDy8GKb0/giphy.gif");
+  background-size: cover;
+  background-position: center;
+  background-repeat: repeat;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  position: relative;
+  display: inline-block;
+  font-weight: 700;
+  padding-right: 0.15em;
+  /* Prevents italic character clipping on the right edge */
+}
+
+/* ===== Aurora glass cards — vibrant gradient glow bleeding up from the
+   bottom of each card. Set --aurora-1 / --aurora-2 per card to recolor. ===== */
+.aurora-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.aurora-card::after {
+  content: "";
+  position: absolute;
+  left: -15%;
+  right: -15%;
+  bottom: -55%;
+  height: 110%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 100% at 35% 100%, var(--aurora-1, rgba(139, 92, 246, 0.55)) 0%, transparent 68%),
+    radial-gradient(ellipse 55% 100% at 70% 100%, var(--aurora-2, rgba(6, 182, 212, 0.5)) 0%, transparent 68%);
+  filter: blur(26px);
+  opacity: 0.5;
+  transform: translateY(8%);
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.aurora-card:hover::after {
+  opacity: 0.9;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aurora-card::after {
+    transition: none;
+  }
+}
+
+/* Animated GIF fill — same asset used by the "documents" hero word, reused
+   as a button background. */
+.gif-bg {
+  background-image: url("https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTIyN2RwbGdkc2w4YWxva3pudHl6M3BtdXV0eW00ZDMzMDdhMzExMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/irCR68lB8tZDy8GKb0/giphy.gif");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* GIFs can't be paused via CSS, so on hover we swap to a single-frame still —
+   effectively freezing the animation. */
+.gif-bg:hover {
+  background-image: url("https://media3.giphy.com/media/irCR68lB8tZDy8GKb0/giphy_s.gif");
+}
+
+/* While pressed, drop the GIF entirely so the button reads as a transparent
+   (ghost) button on click. */
+.gif-bg:active {
+  background-image: none;
+  background-color: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gif-bg {
+    background-image: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #06b6d4 100%) !important;
+  }
+}
+
+/* ===== Radial glow emanating from the center boundary between white/dark halves ===== */
+.hero-radial-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background:
+    /* Primary large glow – soft indigo/violet */
+    radial-gradient(ellipse 70% 55% at 50% 0%, rgba(99, 102, 241, 0.35) 0%, rgba(79, 70, 229, 0.15) 30%, transparent 70%),
+    /* Secondary wider cyan tint */
+    radial-gradient(ellipse 90% 45% at 50% 0%, rgba(6, 182, 212, 0.18) 0%, rgba(20, 184, 166, 0.06) 40%, transparent 75%),
+    /* Tight bright core */
+    radial-gradient(ellipse 40% 30% at 50% 0%, rgba(168, 85, 247, 0.25) 0%, transparent 60%);
+}
+
+/* ╔══════════════════════════════════════════════════════════════════════╗
+   ║  EDIT THE HOMEPAGE GRADIENT HERE                                       ║
+   ║  The bloom under the hero input is 4 stacked radial gradients.         ║
+   ║  • Recolor quickly by changing the --bloom-* color variables below.   ║
+   ║  • To move/resize a layer, edit its `ellipse W% H% at X% Y%` values    ║
+   ║    in the `background` property (Y% > 100 sits below the viewport).    ║
+   ╚══════════════════════════════════════════════════════════════════════╝ */
+.hero-bloom {
+  --bloom-core: rgba(255, 255, 255, 1);
+  --bloom-core-mid: rgba(221, 214, 254, 0.82);
+
+  --bloom-main: rgba(124, 58, 237, 0.95);
+  --bloom-main-mid: rgba(79, 70, 229, 0.65);
+
+  --bloom-left: rgba(37, 99, 235, 0.72);
+  --bloom-right: rgba(192, 38, 211, 0.72);
+
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  transform-origin: bottom;
+
+  background:
+    radial-gradient(
+      ellipse 46% 34% at 50% 104%,
+      var(--bloom-core) 0%,
+      var(--bloom-core-mid) 17%,
+      rgba(167, 139, 250, 0.20) 42%,
+      transparent 68%
+    ),
+
+    radial-gradient(
+      ellipse 92% 58% at 50% 112%,
+      var(--bloom-main) 0%,
+      var(--bloom-main-mid) 34%,
+      rgba(49, 46, 129, 0.14) 58%,
+      transparent 80%
+    ),
+
+    radial-gradient(
+      ellipse 64% 48% at 16% 112%,
+      var(--bloom-left) 0%,
+      rgba(6, 182, 212, 0.15) 44%,
+      transparent 76%
+    ),
+
+    radial-gradient(
+      ellipse 64% 48% at 84% 112%,
+      var(--bloom-right) 0%,
+      rgba(168, 85, 247, 0.16) 44%,
+      transparent 76%
+    ),
+
+    linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(15, 23, 42, 0.24) 100%
+    );
+
+  animation: hero-emit-up 1.9s cubic-bezier(.16, 1, .3, 1) both;
+}
+
+/* White wash behind the headline that melts smoothly into the dark — no hard
+   seam. Solid white up top, fading fully transparent before the bloom. */
+.hero-top-wash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64%;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    #ffffff 0%,
+    #ffffff 56%,
+    rgba(255, 255, 255, 0.85) 72%,
+    rgba(255, 255, 255, 0.4) 86%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+@keyframes hero-emit-up {
+  0% {
+    opacity: 0;
+    transform: translateY(38%) scaleY(0.5);
+    filter: blur(16px);
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleY(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-bloom {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ===== Chat page ambient glow ===== */
+.chat-page-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    /* Center ambient glow */
+    radial-gradient(ellipse 60% 50% at 50% 30%, rgba(99, 102, 241, 0.12) 0%, transparent 70%),
+    /* Soft violet accent */
+    radial-gradient(ellipse 50% 40% at 60% 60%, rgba(139, 92, 246, 0.08) 0%, transparent 65%),
+    /* Subtle cyan tint */
+    radial-gradient(ellipse 45% 35% at 35% 50%, rgba(6, 182, 212, 0.06) 0%, transparent 60%);
+}
+
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Graceful fallback for browsers or users who preferred reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .gif-clipped-word {
+    background-image: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%) !important;
+    background-size: 100% 100% !important;
+    animation: none !important;
+  }
+}
+
+.aurora-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* No background-color here – parent already sets it */
+  background-image:
+    /* Left side soft glow - Modern Teal/Cyan */
+    radial-gradient(ellipse 60% 60% at -10% 30%, rgba(20, 184, 166, 0.16) 0%, rgba(13, 148, 136, 0.04) 50%, transparent 90%),
+
+    /* Right side soft glow - Sophisticated Violet/Purple */
+    radial-gradient(ellipse 60% 60% at 110% 40%, rgba(168, 85, 247, 0.15) 0%, rgba(139, 92, 246, 0.04) 50%, transparent 90%),
+
+    /* Center bottom soft blue ambient light */
+    radial-gradient(ellipse 70% 50% at 50% 100%, rgba(59, 130, 246, 0.14) 0%, rgba(29, 78, 216, 0.02) 60%, transparent 100%);
+}
+
+.aurora-bg::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  background:
+    /* Floating cyan mist */
+    radial-gradient(ellipse 40% 40% at 30% 45%, rgba(6, 182, 212, 0.18) 0%, transparent 70%),
+    /* Floating violet mist */
+    radial-gradient(ellipse 40% 40% at 70% 55%, rgba(139, 92, 246, 0.16) 0%, transparent 70%),
+    /* Floating blue deep ambient */
+    radial-gradient(ellipse 45% 45% at 50% 75%, rgba(59, 130, 246, 0.12) 0%, transparent 75%);
+  filter: blur(60px);
+  animation: auroraFloat 20s ease-in-out infinite alternate;
+}
+
+.aurora-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.35'/%3E%3C/svg%3E");
+}
+
+@keyframes auroraFloat {
+  from {
+    transform: translate3d(-2%, 1%, 0) scale(1);
+    opacity: 0.75;
+  }
+
+  to {
+    transform: translate3d(2%, -2%, 0) scale(1.08);
+    opacity: 1;
+  }
 }
