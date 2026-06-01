@@ -11,8 +11,13 @@ function qaEmbeddingText(question: string, answer: string): string {
 
 // GET — public list of Q&A pairs (no embeddings).
 export async function GET() {
-  const store = await readStore();
-  return NextResponse.json({ qa: store.qa.map(toPublicQA) });
+  try {
+    const store = await readStore();
+    return NextResponse.json({ qa: store.qa.map(toPublicQA) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load Q&A pairs.';
+    return NextResponse.json({ error: message, qa: [] }, { status: 500 });
+  }
 }
 
 // POST — create a Q&A pair, embed it for retrieval.

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { del, get } from '@vercel/blob';
 import {
   readStore,
   addFileRecord,
@@ -18,32 +19,23 @@ import { embedDocuments } from '@/lib/cohere';
 // pdf-parse / mammoth / xlsx require Node, not the edge runtime.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 function makeId() {
   return `file-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// GET — public list of files (no chunks/embeddings).
-export async function GET() {
-  const store = await readStore();
-  return NextResponse.json({ files: store.files.map(toPublicFile) });
+async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
+  const arrayBuffer = await new Response(stream).arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
-// POST — upload, parse, chunk, embed, persist.
-export async function POST(request: Request) {
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: 'Expected multipart/form-data.' }, { status: 400 });
-  }
-
-  const file = form.get('file');
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
-  }
-
-  const type = getFileType(file.name);
+async function createFileRecord(
+  fileName: string,
+  fileSize: number,
+  buffer: Buffer
+): Promise<NextResponse> {
+  const type = getFileType(fileName);
   if (!type) {
     return NextResponse.json(
       { error: 'Unsupported file type. Use PDF, DOCX, XLSX, XLS, or CSV.' },
@@ -53,9 +45,9 @@ export async function POST(request: Request) {
 
   const record: KBFileRecord = {
     id: makeId(),
-    name: file.name,
+    name: fileName,
     type,
-    size: formatSize(file.size),
+    size: formatSize(fileSize),
     status: 'Processing',
     uploadedAt: new Date().toISOString(),
     chunks: [],
@@ -63,7 +55,6 @@ export async function POST(request: Request) {
   await addFileRecord(record);
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
     const text = await extractText(buffer, type);
     const chunkTexts = chunkText(text);
 
@@ -91,5 +82,74 @@ export async function POST(request: Request) {
       { file: toPublicFile(updated ?? record), error: message },
       { status: 500 }
     );
+  }
+}
+
+export async function GET() {
+  try {
+    const store = await readStore();
+    return NextResponse.json({ files: store.files.map(toPublicFile) });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Failed to load documents.';
+    return NextResponse.json({ error: message, files: [] }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+  const contentType = request.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    let body: { blobPathname?: string; name?: string; size?: number };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+    }
+
+    const blobPathname = body.blobPathname?.trim();
+    const fileName = body.name?.trim();
+    if (!blobPathname || !fileName) {
+      return NextResponse.json(
+        { error: 'blobPathname and name are required.' },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const blob = await get(blobPathname, { access: 'private', useCache: false });
+      if (!blob || blob.statusCode !== 200) {
+        return NextResponse.json({ error: 'Uploaded blob was not found.' }, { status: 404 });
+      }
+
+      const buffer = await streamToBuffer(blob.stream);
+      const response = await createFileRecord(fileName, body.size ?? blob.blob.size, buffer);
+
+      // The raw upload is only a handoff object. The indexed KB is stored separately.
+      await del(blobPathname).catch(() => undefined);
+      return response;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Blob processing failed.';
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  }
+
+  let form: FormData;
+  try {
+    form = await request.formData();
+  } catch {
+    return NextResponse.json({ error: 'Expected multipart/form-data.' }, { status: 400 });
+  }
+
+  const file = form.get('file');
+  if (!(file instanceof File)) {
+    return NextResponse.json({ error: 'No file provided.' }, { status: 400 });
+  }
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    return createFileRecord(file.name, file.size, buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Processing failed.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -52,7 +52,10 @@ export interface RetrievalCandidate {
 const EMPTY_STORE: KBStore = { version: 1, files: [], qa: [] };
 
 function hasBlobConfig(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_OIDC_TOKEN);
+  return Boolean(
+    process.env.BLOB_READ_WRITE_TOKEN ||
+      (process.env.VERCEL_OIDC_TOKEN && process.env.BLOB_STORE_ID)
+  );
 }
 
 function shouldUseBlob(): boolean {
@@ -104,12 +107,15 @@ async function readBlobStore(): Promise<KBStore> {
   try {
     const blob = await get(BLOB_STORE_PATH, { access: 'private', useCache: false });
     if (!blob || blob.statusCode !== 200) {
-      return readLocalStore();
+      return process.env.VERCEL === '1' ? { ...EMPTY_STORE } : readLocalStore();
     }
 
     const raw = await new Response(blob.stream).text();
     return normalizeStore(JSON.parse(raw) as Partial<KBStore>);
   } catch (err) {
+    if (err instanceof Error && err.name === 'BlobNotFoundError') {
+      return process.env.VERCEL === '1' ? { ...EMPTY_STORE } : readLocalStore();
+    }
     if (err instanceof SyntaxError) {
       console.error('Failed to parse Blob kb.json, starting empty:', err);
       return { ...EMPTY_STORE };

@@ -1,10 +1,30 @@
 'use client';
 
 import * as React from 'react';
+import { upload } from '@vercel/blob/client';
 import AdminHeader from '@/components/AdminHeader';
 import FileUploadPanel from '@/components/FileUploadPanel';
 import QABuilderPanel from '@/components/QABuilderPanel';
 import { KBFile, KBPair } from '@/lib/kb-data';
+
+const DIRECT_UPLOAD_LIMIT_BYTES = 3.5 * 1024 * 1024;
+
+function makeUploadPath(file: File): string {
+  const safeName = file.name
+    .replace(/[/\\?%*:|"<>]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `uploads/${Date.now()}-${safeName}`;
+}
+
+async function readJsonResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(text || `Request failed (${res.status})`);
+  }
+}
 
 export default function AdminPage() {
   const [files, setFiles] = React.useState<KBFile[]>([]);
@@ -23,8 +43,13 @@ export default function AdminPage() {
           fetch('/api/documents'),
           fetch('/api/qa'),
         ]);
-        const filesData = await filesRes.json();
-        const qaData = await qaRes.json();
+        const [filesData, qaData] = await Promise.all(
+          [filesRes, qaRes].map(async (res) => {
+            const data = await readJsonResponse(res);
+            if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+            return data;
+          })
+        );
         setFiles(filesData.files ?? []);
         setQaList(qaData.qa ?? []);
       } catch (e) {
@@ -44,11 +69,33 @@ export default function AdminPage() {
   // 1. Files Upload and Management — parse + embed happens server-side.
   const handleUploadFile = async (file: File) => {
     // Let failures reject so the upload panel can surface an error state.
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch('/api/documents', { method: 'POST', body: form });
-    if (!res.ok) throw new Error(`Upload failed (${res.status})`);
-    const data = await res.json();
+    let res: Response;
+
+    if (file.size > DIRECT_UPLOAD_LIMIT_BYTES) {
+      const blob = await upload(makeUploadPath(file), file, {
+        access: 'private',
+        handleUploadUrl: '/api/documents/upload',
+        multipart: true,
+        contentType: file.type || 'application/octet-stream',
+      });
+
+      res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          blobPathname: blob.pathname,
+          name: file.name,
+          size: file.size,
+        }),
+      });
+    } else {
+      const form = new FormData();
+      form.append('file', file);
+      res = await fetch('/api/documents', { method: 'POST', body: form });
+    }
+
+    const data = await readJsonResponse(res);
+    if (!res.ok) throw new Error(data.error || `Upload failed (${res.status})`);
     if (!data.file) throw new Error('Upload returned no file');
     setFiles((prev) => {
       const others = prev.filter((f) => f.id !== data.file.id);
