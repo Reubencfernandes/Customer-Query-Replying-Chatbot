@@ -1,13 +1,22 @@
 'use client';
 
 import * as React from 'react';
-import Badge from './Badge';
 import { KBPair } from '@/lib/kb-data';
 
 interface QACardProps {
   qa: KBPair;
   onEdit: (qa: KBPair) => void;
   onDelete: (id: string) => void;
+  isDeleting?: boolean;
+}
+
+function Spinner({ className = '' }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
 }
 
 // Vibrant per-category gradient used for the category chip.
@@ -28,13 +37,15 @@ const CATEGORY_AURORA: Record<string, React.CSSProperties> = {
   Technical: { ['--aurora-1' as string]: 'rgba(249,115,22,0.5)', ['--aurora-2' as string]: 'rgba(244,63,94,0.4)' },
 };
 
-export default function QACard({ qa, onEdit, onDelete }: QACardProps) {
+export default function QACard({ qa, onEdit, onDelete, isDeleting = false }: QACardProps) {
   const aurora = CATEGORY_AURORA[qa.category] ?? CATEGORY_AURORA.General;
   const gradient = CATEGORY_GRADIENT[qa.category] ?? CATEGORY_GRADIENT.General;
   return (
     <div
       style={aurora}
-      className="aurora-card p-4 bg-white/[0.04] backdrop-blur-sm border border-white/10 rounded-2xl hover:border-white/20 transition-all duration-300 select-none"
+      className={`aurora-card p-4 bg-white/[0.04] backdrop-blur-sm border border-white/10 rounded-2xl transition-all duration-300 select-none ${
+        isDeleting ? 'opacity-50' : 'hover:border-white/20'
+      }`}
     >
       <div className="flex flex-col gap-2">
         {/* badges line */}
@@ -43,34 +54,36 @@ export default function QACard({ qa, onEdit, onDelete }: QACardProps) {
             <span className={`inline-flex items-center rounded-full bg-gradient-to-r ${gradient} px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white shadow-sm`}>
               {qa.category || 'General'}
             </span>
-            {qa.prioritize && (
-              <Badge variant="primary" className="py-0 px-1.5 text-[9px] font-bold tracking-wide bg-white text-black border-transparent">
-                ★ Priority
-              </Badge>
-            )}
           </div>
 
-          {/* edit + delete buttons */}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onEdit(qa)}
-              title="Edit Q&A Pair"
-              className="h-8 w-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 border border-transparent transition-all duration-200 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => onDelete(qa.id)}
-              title="Delete Q&A Pair"
-              className="h-8 w-8 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/20 border border-transparent transition-all duration-200 cursor-pointer"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
+          {/* edit + delete buttons (or a Removing… indicator) */}
+          {isDeleting ? (
+            <span className="inline-flex items-center gap-2 text-[11px] font-medium text-red-300/90">
+              <Spinner className="w-3.5 h-3.5" />
+              Removing…
+            </span>
+          ) : (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onEdit(qa)}
+                title="Edit Q&A Pair"
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 border border-transparent transition-all duration-200 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onDelete(qa.id)}
+                title="Delete Q&A Pair"
+                className="h-8 w-8 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/20 border border-transparent transition-all duration-200 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Question text */}

@@ -9,6 +9,7 @@ interface FileUploadPanelProps {
   files: KBFile[];
   onUpload: (file: File) => Promise<void>;
   onDelete: (id: string) => void;
+  deletingIds: Set<string>;
 }
 
 type UploadStatus = 'uploading' | 'done' | 'error';
@@ -23,7 +24,7 @@ interface PendingUpload {
 
 let uploadSeq = 0;
 
-export default function FileUploadPanel({ files, onUpload, onDelete }: FileUploadPanelProps) {
+export default function FileUploadPanel({ files, onUpload, onDelete, deletingIds }: FileUploadPanelProps) {
   const [isDragOver, setIsDragOver] = React.useState(false);
   const [uploads, setUploads] = React.useState<PendingUpload[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -51,11 +52,10 @@ export default function FileUploadPanel({ files, onUpload, onDelete }: FileUploa
 
     const succeed = () => {
       clearInterval(interval);
-      setUploads((prev) =>
-        prev.map((u) => (u.id === fileId ? { ...u, progress: 100, status: 'done' } : u))
-      );
-      // Auto-dismiss the success toast after it has been seen.
-      setTimeout(() => dismissUpload(fileId), 1800);
+      // Don't show a separate "file uploaded" card. The file is already added
+      // to the knowledge-base list below, so just remove the progress toast and
+      // let the file card itself signal completion.
+      dismissUpload(fileId);
     };
 
     const fail = () => {
@@ -205,7 +205,12 @@ export default function FileUploadPanel({ files, onUpload, onDelete }: FileUploa
         ) : (
           <div className="mt-3 space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
             {files.map((file) => (
-              <UploadedFileCard key={file.id} file={file} onDelete={onDelete} />
+              <UploadedFileCard
+                key={file.id}
+                file={file}
+                onDelete={onDelete}
+                isDeleting={deletingIds.has(file.id)}
+              />
             ))}
           </div>
         )}

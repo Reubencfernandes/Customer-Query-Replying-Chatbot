@@ -6,7 +6,52 @@ import {
   chatWithDocuments,
   cosineSimilarity,
 } from '@/lib/cohere';
-import { RETRIEVE_TOP_K, QA_PRIORITY_BOOST } from '@/lib/cohere-config';
+import {
+  RETRIEVE_TOP_K,
+  CONTEXT_TOP_N,
+  PER_SOURCE_CAP,
+  QA_PRIORITY_BOOST,
+} from '@/lib/cohere-config';
+
+/**
+ * Pick the final context chunks from a relevance-ranked list while guaranteeing
+ * that multiple source documents are represented. Without this, a question that
+ * spans two documents ("what is X and Y") gets answered from whichever document
+ * dominates the ranking, because every top slot is filled from it.
+ *
+ * Strategy: round-robin across documents (one chunk per document per pass, in
+ * relevance order) so each relevant document contributes its best chunks first,
+ * capped per source and limited to `limit` chunks total.
+ */
+function diversifyBySource<T extends { sourceName: string }>(
+  ranked: T[],
+  limit: number,
+  perSourceCap: number
+): T[] {
+  const bySource = new Map<string, T[]>();
+  for (const chunk of ranked) {
+    const arr = bySource.get(chunk.sourceName);
+    if (arr) arr.push(chunk);
+    else bySource.set(chunk.sourceName, [chunk]);
+  }
+
+  const used = new Map<string, number>();
+  const result: T[] = [];
+  let progressed = true;
+  while (result.length < limit && progressed) {
+    progressed = false;
+    for (const [name, chunks] of bySource) {
+      if ((used.get(name) ?? 0) >= perSourceCap) continue;
+      const next = chunks.shift();
+      if (!next) continue;
+      result.push(next);
+      used.set(name, (used.get(name) ?? 0) + 1);
+      progressed = true;
+      if (result.length >= limit) break;
+    }
+  }
+  return result;
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,12 +93,16 @@ export async function POST(request: Request) {
       .slice(0, RETRIEVE_TOP_K)
       .map((s) => s.c);
 
-    // 2. Rerank the top-K candidates for precision.
+    // 2. Rerank the whole candidate pool for precision (best-first).
     const reranked = await rerank(query, scored.map((c) => c.text));
-    const finalDocs =
-      reranked.length > 0 ? reranked.map((r) => scored[r.index]) : scored.slice(0, 6);
+    const rankedChunks =
+      reranked.length > 0 ? reranked.map((r) => scored[r.index]) : scored;
 
-    // 3. Build Cohere documents + an id -> source map for citation resolution.
+    // 3. Select the final context, balancing relevance with document coverage so
+    //    multi-document questions are answered from every relevant document.
+    const finalDocs = diversifyBySource(rankedChunks, CONTEXT_TOP_N, PER_SOURCE_CAP);
+
+    // 4. Build Cohere documents + an id -> source map for citation resolution.
     const idToSource = new Map<string, Source>();
     const documents = finalDocs.map((c, i) => {
       const id = String(i);
@@ -61,10 +110,10 @@ export async function POST(request: Request) {
       return { id, data: { title: c.sourceName, text: c.text } };
     });
 
-    // 4. Generate the grounded answer with citations.
+    // 5. Generate the grounded answer with citations.
     const { text, citations } = await chatWithDocuments(query, documents);
 
-    // 5. Resolve cited document ids back to UI sources, deduped by name.
+    // 6. Resolve cited document ids back to UI sources, deduped by name.
     const seen = new Set<string>();
     const sources: Source[] = [];
     for (const citation of citations) {

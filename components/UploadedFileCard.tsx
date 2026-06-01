@@ -8,6 +8,16 @@ import { KBFile } from '@/lib/kb-data';
 interface UploadedFileCardProps {
   file: KBFile;
   onDelete: (id: string) => void;
+  isDeleting?: boolean;
+}
+
+function Spinner({ className = '' }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  );
 }
 
 // Per-type aurora glow colors that bleed up from the bottom of the card.
@@ -18,7 +28,7 @@ const AURORA: Record<string, React.CSSProperties> = {
   CSV: { ['--aurora-1' as string]: 'rgba(168,85,247,0.55)', ['--aurora-2' as string]: 'rgba(99,102,241,0.45)' },
 };
 
-export default function UploadedFileCard({ file, onDelete }: UploadedFileCardProps) {
+export default function UploadedFileCard({ file, onDelete, isDeleting = false }: UploadedFileCardProps) {
   // Brand logo for the file type, sitting on a subtle dark tile to match
   // the admin theme.
   const renderIcon = () => (
@@ -36,7 +46,9 @@ export default function UploadedFileCard({ file, onDelete }: UploadedFileCardPro
   return (
     <div
       style={AURORA[file.type] ?? AURORA.CSV}
-      className="aurora-card flex items-center justify-between p-4 bg-white/[0.04] backdrop-blur-sm border border-white/10 rounded-2xl hover:border-white/20 transition-all duration-300 select-none"
+      className={`aurora-card flex items-center justify-between p-4 bg-white/[0.04] backdrop-blur-sm border border-white/10 rounded-2xl transition-all duration-300 select-none ${
+        isDeleting ? 'opacity-50' : 'hover:border-white/20'
+      }`}
     >
       {/* File Metainfo */}
       <div className="flex items-center gap-3 min-w-0 pr-4">
@@ -57,22 +69,31 @@ export default function UploadedFileCard({ file, onDelete }: UploadedFileCardPro
 
       {/* Delete and Status */}
       <div className="flex items-center gap-3 flex-shrink-0">
-        <Badge
-          variant={statusVariants[file.status] || 'neutral'}
-          className={`text-[10px] py-0.5 px-2 bg-white/10 text-white border-white/10 ${file.status === 'Processing' ? 'animate-pulse' : ''}`}
-        >
-          {file.status}
-        </Badge>
+        {isDeleting ? (
+          <span className="inline-flex items-center gap-2 text-[11px] font-medium text-red-300/90">
+            <Spinner className="w-3.5 h-3.5" />
+            Removing…
+          </span>
+        ) : (
+          <>
+            <Badge
+              variant={statusVariants[file.status] || 'neutral'}
+              className={`text-[10px] py-0.5 px-2 bg-white/10 text-white border-white/10 ${file.status === 'Processing' ? 'animate-pulse' : ''}`}
+            >
+              {file.status}
+            </Badge>
 
-        <button
-          onClick={() => onDelete(file.id)}
-          aria-label="Delete document"
-          className="h-8 w-8 rounded-lg flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-500/20 hover:border-red-500/30 transition-colors duration-200 border border-transparent cursor-pointer"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
+            <button
+              onClick={() => onDelete(file.id)}
+              aria-label="Delete document"
+              className="h-8 w-8 rounded-lg flex items-center justify-center text-white/40 hover:text-red-400 hover:bg-red-500/20 hover:border-red-500/30 transition-colors duration-200 border border-transparent cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

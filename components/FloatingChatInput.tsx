@@ -10,7 +10,17 @@ const PLACEHOLDERS = [
   "Find clauses about termination...",
 ];
 
-export default function FloatingChatInput() {
+interface FloatingChatInputProps {
+  /**
+   * When provided, submitting calls this instead of navigating to /chat —
+   * used by the homepage to run the conversation inline. Without it, the
+   * input falls back to routing to the dedicated /chat page.
+   */
+  onSubmitText?: (text: string) => void;
+  disabled?: boolean;
+}
+
+export default function FloatingChatInput({ onSubmitText, disabled }: FloatingChatInputProps) {
   const router = useRouter();
   const [val, setVal] = React.useState('');
   const [phText, setPhText] = React.useState('');
@@ -45,8 +55,14 @@ export default function FloatingChatInput() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!val.trim()) return;
-    router.push(`/chat?q=${encodeURIComponent(val.trim())}`);
+    const text = val.trim();
+    if (!text) return;
+    if (onSubmitText) {
+      onSubmitText(text);
+      setVal('');
+    } else {
+      router.push(`/chat?q=${encodeURIComponent(text)}`);
+    }
   };
 
   const handleKeydown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -69,7 +85,8 @@ export default function FloatingChatInput() {
             onChange={(e) => setVal(e.target.value)}
             onKeyDown={handleKeydown}
             placeholder={phText}
-            className="w-full h-full min-h-[60px] bg-transparent text-white placeholder-neutral-400 focus:outline-none text-base resize-none font-sans"
+            disabled={disabled}
+            className="w-full h-full min-h-[60px] bg-transparent text-white placeholder-neutral-400 focus:outline-none text-base resize-none font-sans disabled:opacity-60"
           />
         </div>
 
@@ -78,10 +95,10 @@ export default function FloatingChatInput() {
           {/* Right Actions (Submit) */}
           <button
             type="submit"
-            disabled={!val.trim()}
+            disabled={!val.trim() || disabled}
             className={`flex-shrink-0 h-9 w-9 rounded-full flex items-center justify-center transition-all duration-200 shadow-sm ${
-              val.trim() 
-                ? 'bg-white text-black hover:scale-105 active:scale-95 cursor-pointer' 
+              val.trim() && !disabled
+                ? 'bg-white text-black hover:scale-105 active:scale-95 cursor-pointer'
                 : 'bg-white/10 text-white/30 cursor-not-allowed'
             }`}
           >

@@ -10,7 +10,7 @@ export default function Navbar() {
 
   const navLinks = [
     { name: 'Admin', href: '/admin' },
-    { name: 'Chat', href: '/chat' },
+    { name: 'Chat', href: '/' },
     { name: 'Docs', href: '#' },
   ];
 
@@ -49,7 +49,7 @@ export default function Navbar() {
 
           {/* CTA Button */}
           <div className="hidden md:flex items-center">
-            <Link href="/chat">
+            <Link href="/">
               <button className="h-8 px-4 rounded-full bg-neutral-950 hover:bg-neutral-800 text-white text-[11px] font-semibold tracking-wide transition-all duration-150 shadow-3xs cursor-pointer">
                 Get Started
               </button>
@@ -102,7 +102,7 @@ export default function Navbar() {
               );
             })}
             <div className="pt-3 px-3">
-              <Link href="/chat" onClick={() => setMobileMenuOpen(false)}>
+              <Link href="/" onClick={() => setMobileMenuOpen(false)}>
                 <button className="w-full h-9 rounded-full bg-neutral-950 text-white text-xs font-semibold tracking-wide">
                   Get Started
                 </button>

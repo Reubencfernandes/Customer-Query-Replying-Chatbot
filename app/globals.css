@@ -22,6 +22,19 @@
 body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+/* Scrollable but with no visible scrollbar (used by the chat thread). */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* ===== AskFlow Custom Animations & Styles ===== */
@@ -148,18 +161,18 @@ body {
 }
 
 /* Animated GIF fill — same asset used by the "documents" hero word, reused
-   as a button background. */
+   as a button background. Paused by default (single still frame), and it
+   plays only while the user hovers the button. */
 .gif-bg {
-  background-image: url("https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTIyN2RwbGdkc2w4YWxva3pudHl6M3BtdXV0eW00ZDMzMDdhMzExMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/irCR68lB8tZDy8GKb0/giphy.gif");
+  background-image: url("https://media3.giphy.com/media/irCR68lB8tZDy8GKb0/giphy_s.gif");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-/* GIFs can't be paused via CSS, so on hover we swap to a single-frame still —
-   effectively freezing the animation. */
+/* On hover, swap to the animated GIF so it plays from the first frame. */
 .gif-bg:hover {
-  background-image: url("https://media3.giphy.com/media/irCR68lB8tZDy8GKb0/giphy_s.gif");
+  background-image: url("https://media3.giphy.com/media/v1.Y2lkPTc5MGI3NjExcTIyN2RwbGdkc2w4YWxva3pudHl6M3BtdXV0eW00ZDMzMDdhMzExMSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/irCR68lB8tZDy8GKb0/giphy.gif");
 }
 
 /* While pressed, drop the GIF entirely so the button reads as a transparent
@@ -192,43 +205,91 @@ body {
 
 /* The redesigned glowing horizon */
 .hero-bloom {
-  --bloom-core: #ffffff;
-  --bloom-violet-light: #d8b4fe;
-  --bloom-indigo: #4f46e5;
-  --bloom-deep-purple: #2e1065;
+  /* Brand color variables — luminous indigo/periwinkle.
+     The inner basin is a soft periwinkle (not near-white), so the bottom of
+     the screen fills with gentle colour instead of reading as white space. */
+  --bloom-inner-start: #c7d2fe;
+  --bloom-inner-mid: #818cf8;
+  --bloom-arch-core: #4f46e5;
+  --bloom-arch-dark: #3730a3;
+
+  /* Cursor influence — driven from JS, defaults keep the bloom centered */
+  --bloom-mx: 0;
+  --bloom-my: 0;
+
+  /* Extra downward shift of the gradient centre. 0% on the landing hero;
+     bumped up in chat mode (.is-chatting) so the arch finishes just above
+     the chat input instead of rising into the middle of the screen. */
+  --bloom-push: 0%;
 
   position: absolute;
-  inset: 0;
+  /* Overhang past the viewport bottom so the GSAP breathing translate (y: -8)
+     never lifts the layer enough to reveal a white strip at the bottom edge. */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: -12%;
+  overflow: hidden;
   pointer-events: none;
   z-index: 1;
+  /* Origin at the bottom so the GSAP entrance grows upward from the floor */
   transform-origin: bottom center;
 
+  /* Entrance + breathing are driven by GSAP (see HeroSection.tsx).
+     The two pseudo-element layers still drift via CSS for the liquid effect. */
+}
+
+/* In chat mode, push the glow down so it sits just above the input. */
+.hero-bloom.is-chatting {
+  --bloom-push: 14%;
+}
+
+.hero-bloom::before,
+.hero-bloom::after {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  transform-origin: bottom center;
+  pointer-events: none;
+}
+
+/* --- LIGHT LAYER A (Slightly left-biased) --- */
+/* The gradient center is nudged by the cursor (--bloom-mx/--bloom-my) so the
+   bright core of the arch leans toward wherever the mouse is. */
+.hero-bloom::before {
   background:
-    /* Layer 1: Bright white/light-purple outer crest */
-    radial-gradient(ellipse 75% 60% at 50% 115%,
-      transparent 84%,
-      var(--bloom-core) 90%,
-      transparent 94%),
-
-    /* Layer 2: Rich indigo/purple body of the arc */
-    radial-gradient(ellipse 75% 60% at 50% 115%,
-      transparent 60%,
-      var(--bloom-deep-purple) 74%,
-      var(--bloom-indigo) 83%,
-      var(--bloom-violet-light) 90%,
-      transparent 95%),
-
-    /* Layer 3: Soft, deep ambient backing glow to prevent sharp edges */
-    radial-gradient(ellipse 85% 70% at 50% 120%,
-      rgba(79, 70, 229, 0.15) 0%,
-      rgba(124, 58, 237, 0.2) 50%,
-      transparent 80%);
+    radial-gradient(ellipse 80% 60% at calc(48% + 5% * var(--bloom-mx)) calc(113% + 3% * var(--bloom-my) + var(--bloom-push)),
+      transparent 83%,
+      rgba(255, 255, 255, 0.8) 88%,
+      transparent 93%),
+    radial-gradient(ellipse 80% 60% at calc(48% + 5% * var(--bloom-mx)) calc(113% + 3% * var(--bloom-my) + var(--bloom-push)),
+      var(--bloom-inner-start) 0%,
+      var(--bloom-inner-mid) 45%,
+      var(--bloom-arch-core) 72%,
+      var(--bloom-arch-dark) 85%,
+      transparent 92%);
 
   filter: blur(8px);
+  animation: bloom-drift-left 11s ease-in-out infinite alternate;
+}
 
-  animation:
-    hero-entrance 2.2s cubic-bezier(0.16, 1, 0.3, 1) forwards,
-    hero-breath 8s ease-in-out 2.2s infinite alternate;
+/* --- LIGHT LAYER B (Slightly right-biased, opposite cursor lean for depth) --- */
+.hero-bloom::after {
+  background:
+    radial-gradient(ellipse 82% 62% at calc(52% + 8% * var(--bloom-mx)) calc(116% + 4% * var(--bloom-my) + var(--bloom-push)),
+      transparent 83%,
+      rgba(255, 255, 255, 0.6) 88%,
+      transparent 93%),
+    radial-gradient(ellipse 82% 62% at calc(52% + 8% * var(--bloom-mx)) calc(116% + 4% * var(--bloom-my) + var(--bloom-push)),
+      var(--bloom-inner-start) 0%,
+      var(--bloom-inner-mid) 42%,
+      var(--bloom-arch-core) 70%,
+      var(--bloom-arch-dark) 84%,
+      transparent 92%);
+
+  filter: blur(10px);
+  mix-blend-mode: multiply;
+  animation: bloom-drift-right 15s ease-in-out infinite alternate;
 }
 
 /* White wash behind the headline that melts smoothly into the dark — no hard
@@ -251,34 +312,34 @@ body {
   );
 }
 
-@keyframes hero-entrance {
+@keyframes bloom-drift-left {
   0% {
-    transform: scale(0.9) translateY(8%);
-    opacity: 0;
+    transform: translate(-1.5%, 1%) scale(0.97);
+    filter: blur(8px) brightness(0.95);
   }
   100% {
-    transform: scale(1) translateY(0);
-    opacity: 1;
+    transform: translate(1.5%, -1%) scale(1.03);
+    filter: blur(11px) brightness(1.05);
   }
 }
 
-@keyframes hero-breath {
+@keyframes bloom-drift-right {
   0% {
-    transform: scale(1) translateY(0);
-    filter: blur(8px) brightness(0.95);
-  }
-  50% {
-    transform: scale(1.02) translateY(-0.5%);
-    filter: blur(10px) brightness(1.05);
+    transform: translate(1.5%, -0.5%) scale(1.02);
+    filter: blur(11px) brightness(1.03);
   }
   100% {
-    transform: scale(0.99) translateY(0.3%);
-    filter: blur(7px) brightness(0.92);
+    transform: translate(-1.5%, 0.5%) scale(0.98);
+    filter: blur(8px) brightness(0.97);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-bloom {
+    animation: none;
+  }
+  .hero-bloom::before,
+  .hero-bloom::after {
     animation: none;
     transform: none;
     filter: blur(8px);

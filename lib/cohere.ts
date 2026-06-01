@@ -3,7 +3,6 @@ import {
   EMBED_MODEL,
   RERANK_MODEL,
   CHAT_MODEL,
-  RERANK_TOP_N,
   EMBED_BATCH,
 } from './cohere-config';
 
@@ -58,10 +57,15 @@ export async function embedQuery(text: string): Promise<number[]> {
   return vec;
 }
 
-/** Rerank candidate document texts against the query. Returns index + relevance, best first. */
+/**
+ * Rerank candidate document texts against the query. Returns index + relevance,
+ * best first. By default returns *all* candidates ranked, so the caller can
+ * apply its own selection (e.g. per-source diversification) on the full pool.
+ */
 export async function rerank(
   query: string,
-  documents: string[]
+  documents: string[],
+  topN: number = documents.length
 ): Promise<{ index: number; relevanceScore: number }[]> {
   if (documents.length === 0) return [];
   const co = getClient();
@@ -69,7 +73,7 @@ export async function rerank(
     model: RERANK_MODEL,
     query,
     documents,
-    topN: Math.min(RERANK_TOP_N, documents.length),
+    topN: Math.min(topN, documents.length),
   });
   return res.results.map((r) => ({
     index: r.index,

@@ -9,8 +9,11 @@ import { KBFile, KBPair } from '@/lib/kb-data';
 export default function AdminPage() {
   const [files, setFiles] = React.useState<KBFile[]>([]);
   const [qaList, setQaList] = React.useState<KBPair[]>([]);
-  const [status, setStatus] = React.useState<'Draft' | 'Published'>('Draft');
   const [lastUpdated, setLastUpdated] = React.useState<string>('Just now');
+
+  // Ids currently being deleted, so the cards can show a "Removing…" state.
+  const [deletingFileIds, setDeletingFileIds] = React.useState<Set<string>>(new Set());
+  const [deletingQaIds, setDeletingQaIds] = React.useState<Set<string>>(new Set());
 
   // Load the knowledge base from the server on mount.
   React.useEffect(() => {
@@ -36,7 +39,6 @@ export default function AdminPage() {
   const triggerUpdateTimestamp = () => {
     const now = new Date();
     setLastUpdated(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    setStatus('Draft'); // Switch status to Draft when edits are made
   };
 
   // 1. Files Upload and Management — parse + embed happens server-side.
@@ -56,12 +58,20 @@ export default function AdminPage() {
   };
 
   const handleDeleteFile = async (id: string) => {
+    setDeletingFileIds((prev) => new Set(prev).add(id));
     try {
-      await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/documents/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
       setFiles((prev) => prev.filter((f) => f.id !== id));
       triggerUpdateTimestamp();
     } catch (e) {
       console.error('Delete failed', e);
+    } finally {
+      setDeletingFileIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -101,20 +111,21 @@ export default function AdminPage() {
   };
 
   const handleDeleteQA = async (id: string) => {
+    setDeletingQaIds((prev) => new Set(prev).add(id));
     try {
-      await fetch(`/api/qa/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/qa/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Delete failed (${res.status})`);
       setQaList((prev) => prev.filter((qa) => qa.id !== id));
       triggerUpdateTimestamp();
     } catch (e) {
       console.error('Delete Q&A failed', e);
+    } finally {
+      setDeletingQaIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
-  };
-
-  // 3. Publish Configuration Action
-  const handlePublish = () => {
-    setStatus('Published');
-    const now = new Date();
-    setLastUpdated(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
   };
 
   // Calculating counters
@@ -123,28 +134,53 @@ export default function AdminPage() {
   const totalQAs = qaList.length;
 
   return (
-    <main className="min-h-screen bg-black/95 text-white pt-10 pb-16 relative overflow-hidden">
+    <main className="min-h-screen bg-black/95 text-white pt-10 pb-16 relative overflow-hidden font-sans">
       {/* Decorative dark aurora hints behind the panels */}
       <div className="absolute inset-0 z-0 opacity-40 pointer-events-none aurora-bg" />
       <div className="absolute inset-0 bg-black/60 pointer-events-none z-0" />
 
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
+
         {/* Admin header */}
-        <AdminHeader status={status} onPublish={handlePublish} />
+        <AdminHeader />
 
         {/* Core Workspace Panels split side-by-side or stacked on mobile */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start mt-6">
-          
-          {/* Left panel: File documents loader */}
-          <section className="bg-[#141414]/80 backdrop-blur-md border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-white/15 transition-all duration-300">
-            <FileUploadPanel
-              files={files}
-              onUpload={handleUploadFile}
-              onDelete={handleDeleteFile}
-            />
-          </section>
+
+          {/* Left column: File loader + its index metrics */}
+          <div className="flex flex-col gap-8">
+            <section className="bg-[#141414]/80 backdrop-blur-md border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-white/15 transition-all duration-300">
+              <FileUploadPanel
+                files={files}
+                onUpload={handleUploadFile}
+                onDelete={handleDeleteFile}
+                deletingIds={deletingFileIds}
+              />
+            </section>
+
+            {/* Index metrics — sits directly below Upload documents */}
+            <div className="bg-[#141414]/80 backdrop-blur-md border border-white/10 rounded-2xl p-5 flex flex-wrap gap-6 sm:gap-10 items-center justify-between shadow-2xl">
+              <div className="flex items-center gap-6 sm:gap-10">
+                <div>
+                  <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Total Documents</p>
+                  <p className="text-2xl font-semibold text-white mt-0.5 tracking-tight">{totalFiles}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Indexed (Ready)</p>
+                  <p className="text-2xl font-semibold text-emerald-400 mt-0.5 tracking-tight">{readyFilesCount}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Custom Q&As</p>
+                  <p className="text-2xl font-semibold text-white mt-0.5 tracking-tight">{totalQAs}</p>
+                </div>
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Last Sync</p>
+                <p className="text-sm font-medium text-white/70 mt-0.5">Updated {lastUpdated}</p>
+              </div>
+            </div>
+          </div>
 
           {/* Right panel: Custom Q&A compiler */}
           <section className="bg-[#141414]/80 backdrop-blur-md border border-white/10 rounded-3xl p-6 sm:p-8 shadow-2xl hover:border-white/15 transition-all duration-300">
@@ -153,35 +189,10 @@ export default function AdminPage() {
               onAdd={handleAddQA}
               onUpdate={handleUpdateQA}
               onDelete={handleDeleteQA}
+              deletingIds={deletingQaIds}
             />
           </section>
 
-        </div>
-
-        {/* Bottom informational metrics footer */}
-        <div className="mt-8 bg-[#141414]/80 backdrop-blur-md border border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row gap-6 justify-between items-start sm:items-center shadow-2xl">
-          <div className="grid grid-cols-2 sm:flex sm:items-center gap-6 sm:gap-10 w-full sm:w-auto">
-            {/* Metric 1 */}
-            <div>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Total Documents</p>
-              <p className="text-xl font-semibold text-white mt-0.5">{totalFiles}</p>
-            </div>
-            {/* Metric 2 */}
-            <div>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Indexed (Ready)</p>
-              <p className="text-xl font-semibold text-emerald-400 mt-0.5">{readyFilesCount}</p>
-            </div>
-            {/* Metric 3 */}
-            <div>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Custom Q&As</p>
-              <p className="text-xl font-semibold text-white mt-0.5">{totalQAs}</p>
-            </div>
-          </div>
-
-          <div className="text-left sm:text-right border-t sm:border-t-0 border-white/5 pt-4 sm:pt-0 w-full sm:w-auto">
-            <p className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Last Sync State</p>
-            <p className="text-sm font-medium text-white/70 mt-0.5">Updated {lastUpdated}</p>
-          </div>
         </div>
 
       </div>

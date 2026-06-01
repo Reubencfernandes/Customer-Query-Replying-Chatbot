@@ -10,7 +10,11 @@ export const CHUNK_WORDS = 400;
 export const CHUNK_OVERLAP_WORDS = 50;
 
 // Retrieval tuning.
-export const RETRIEVE_TOP_K = 30; // candidates pulled by cosine similarity before rerank
-export const RERANK_TOP_N = 6; // documents handed to the chat model after rerank
+// A wide cosine pool so a blended multi-topic query ("X and Y") still pulls in
+// the weaker topic's chunks before reranking — for most small KBs this is
+// effectively "rerank everything", which is the most robust option.
+export const RETRIEVE_TOP_K = 120; // candidates pulled by cosine similarity before rerank
+export const CONTEXT_TOP_N = 12; // chunks handed to the chat model after rerank + diversification
+export const PER_SOURCE_CAP = 5; // max chunks from any single document in the final context
 export const QA_PRIORITY_BOOST = 0.15; // cosine-score bonus for prioritized Q&A pairs
 export const EMBED_BATCH = 96; // max texts per embed request

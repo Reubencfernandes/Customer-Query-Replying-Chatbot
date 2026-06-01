@@ -9,14 +9,14 @@ interface QABuilderPanelProps {
   onAdd: (q: string, a: string, cat: string, prio: boolean) => void;
   onUpdate: (id: string, q: string, a: string, cat: string, prio: boolean) => void;
   onDelete: (id: string) => void;
+  deletingIds: Set<string>;
 }
 
-export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QABuilderPanelProps) {
+export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete, deletingIds }: QABuilderPanelProps) {
   const [question, setQuestion] = React.useState('');
   const [answer, setAnswer] = React.useState('');
   const [category, setCategory] = React.useState('General');
-  const [prioritize, setPrioritize] = React.useState(false);
-  
+
   // Track active edit mode
   const [editingId, setEditingId] = React.useState<string | null>(null);
 
@@ -36,17 +36,16 @@ export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QA
     if (!question.trim() || !answer.trim()) return;
 
     if (editingId) {
-      onUpdate(editingId, question.trim(), answer.trim(), category.trim(), prioritize);
+      onUpdate(editingId, question.trim(), answer.trim(), category.trim(), false);
       setEditingId(null);
     } else {
-      onAdd(question.trim(), answer.trim(), category.trim(), prioritize);
+      onAdd(question.trim(), answer.trim(), category.trim(), false);
     }
 
     // Reset fields
     setQuestion('');
     setAnswer('');
     setCategory('General');
-    setPrioritize(false);
   };
 
   const handleEditInit = (qa: KBPair) => {
@@ -54,7 +53,6 @@ export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QA
     setQuestion(qa.question);
     setAnswer(qa.answer);
     setCategory(qa.category || 'General');
-    setPrioritize(qa.prioritize);
   };
 
   const handleCancelEdit = () => {
@@ -62,7 +60,6 @@ export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QA
     setQuestion('');
     setAnswer('');
     setCategory('General');
-    setPrioritize(false);
   };
 
   return (
@@ -138,7 +135,7 @@ export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QA
                   key={cat}
                   type="button"
                   onClick={() => setCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 cursor-pointer active:scale-95 ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all duration-100 cursor-pointer active:scale-95 ${
                     acts
                       ? `bg-gradient-to-r ${categoryGradients[cat]} text-white border-transparent shadow-lg shadow-black/30`
                       : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-white'
@@ -149,30 +146,6 @@ export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QA
               );
             })}
           </div>
-        </div>
-
-        {/* Toggle Switch */}
-        <div className="flex items-center justify-between pt-1 select-none">
-          <div className="flex flex-col pr-4">
-            <span className="text-xs font-bold text-white/90">Prioritize this answer</span>
-            <span className="text-[10px] text-white/40 mt-0.5">
-              Overrides document matches and returns this exact text.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setPrioritize(!prioritize)}
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-              prioritize ? 'bg-white' : 'bg-white/20'
-            }`}
-          >
-            <span className="sr-only">Toggle prioritization</span>
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-black shadow-sm ring-0 transition duration-200 ease-in-out ${
-                prioritize ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
         </div>
 
         {/* Submit — animated GIF background matching the hero "documents" word */}
@@ -207,6 +180,7 @@ export default function QABuilderPanel({ qaList, onAdd, onUpdate, onDelete }: QA
                 qa={qa}
                 onEdit={handleEditInit}
                 onDelete={onDelete}
+                isDeleting={deletingIds.has(qa.id)}
               />
             ))}
           </div>
