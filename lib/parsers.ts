@@ -1,4 +1,4 @@
-import { PDFParse } from 'pdf-parse';
+import pdf from 'pdf-parse';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
 import { CHUNK_WORDS, CHUNK_OVERLAP_WORDS } from './cohere-config';
@@ -9,16 +9,8 @@ export { ACCEPTED_EXTENSIONS, formatSize, getFileType } from './file-meta';
 // Document parsing (server-side only; these libraries require the Node runtime).
 
 async function extractPdf(buffer: Buffer): Promise<string> {
-  // pdf-parse v2: construct PDFParse with the data buffer, then getText().
-  const parser = new PDFParse({ data: buffer });
-  try {
-    const result = await parser.getText();
-    // Join per-page text (clean) rather than result.text, which interleaves
-    // page markers that would add noise to embeddings.
-    return result.pages.map((p) => p.text).join('\n\n');
-  } finally {
-    await parser.destroy();
-  }
+  const data = await pdf(buffer);
+  return data.text;
 }
 
 async function extractDocx(buffer: Buffer): Promise<string> {
