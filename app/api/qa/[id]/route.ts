@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { readStore, updateQA, deleteQA, toPublicQA } from '@/lib/kb-store';
-import { embedDocuments } from '@/lib/cohere';
 
 export const runtime = 'nodejs';
 
@@ -44,8 +43,11 @@ export async function PUT(
   // Re-embed only if the question or answer text changed.
   const textChanged =
     existing.question !== question || existing.answer !== answer;
+  const { embedDocuments } = textChanged
+    ? await import('@/lib/cohere')
+    : { embedDocuments: null };
   const embedding = textChanged
-    ? (await embedDocuments([qaEmbeddingText(question, answer)]))[0] ?? existing.embedding
+    ? (await embedDocuments!([qaEmbeddingText(question, answer)]))[0] ?? existing.embedding
     : existing.embedding;
 
   const updated = await updateQA(id, {

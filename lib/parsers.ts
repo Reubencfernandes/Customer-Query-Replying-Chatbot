@@ -1,35 +1,12 @@
 import { PDFParse } from 'pdf-parse';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
-import type { KBFile } from './kb-data';
 import { CHUNK_WORDS, CHUNK_OVERLAP_WORDS } from './cohere-config';
+import type { FileType } from './file-meta';
 
-// Document parsing (server-side only — these libraries require the Node runtime).
+export { ACCEPTED_EXTENSIONS, formatSize, getFileType } from './file-meta';
 
-export type FileType = KBFile['type'];
-
-const EXT_TO_TYPE: Record<string, FileType> = {
-  pdf: 'PDF',
-  doc: 'DOCX',
-  docx: 'DOCX',
-  xls: 'EXCEL',
-  xlsx: 'EXCEL',
-  csv: 'CSV',
-};
-
-export const ACCEPTED_EXTENSIONS = Object.keys(EXT_TO_TYPE);
-
-/** Map a filename to one of the KBFile.type labels. Returns null if unsupported. */
-export function getFileType(fileName: string): FileType | null {
-  const ext = fileName.split('.').pop()?.toLowerCase() ?? '';
-  return EXT_TO_TYPE[ext] ?? null;
-}
-
-/** Human-readable size string matching the original FileUploadPanel formatting. */
-export function formatSize(bytes: number): string {
-  const mb = bytes / (1024 * 1024);
-  return mb < 1 ? `${Math.round(bytes / 1024)} KB` : `${mb.toFixed(1)} MB`;
-}
+// Document parsing (server-side only; these libraries require the Node runtime).
 
 async function extractPdf(buffer: Buffer): Promise<string> {
   // pdf-parse v2: construct PDFParse with the data buffer, then getText().
@@ -37,7 +14,7 @@ async function extractPdf(buffer: Buffer): Promise<string> {
   try {
     const result = await parser.getText();
     // Join per-page text (clean) rather than result.text, which interleaves
-    // "-- N of M --" page markers that would add noise to embeddings.
+    // page markers that would add noise to embeddings.
     return result.pages.map((p) => p.text).join('\n\n');
   } finally {
     await parser.destroy();

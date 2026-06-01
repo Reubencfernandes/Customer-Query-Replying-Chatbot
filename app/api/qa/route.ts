@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { readStore, addQA, toPublicQA, type QARecord } from '@/lib/kb-store';
-import { embedDocuments } from '@/lib/cohere';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,6 +42,7 @@ export async function POST(request: Request) {
     );
   }
 
+  const { embedDocuments } = await import('@/lib/cohere');
   const [embedding] = await embedDocuments([qaEmbeddingText(question, answer)]);
 
   const record: QARecord = {

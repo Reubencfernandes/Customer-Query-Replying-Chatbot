@@ -1,6 +1,5 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { get, put } from '@vercel/blob';
 import type { KBFile, KBPair } from './kb-data';
 
 // Server-side source of truth for the knowledge base.
@@ -105,6 +104,7 @@ async function readBlobStore(): Promise<KBStore> {
   }
 
   try {
+    const { get } = await import('@vercel/blob');
     const blob = await get(BLOB_STORE_PATH, { access: 'private', useCache: false });
     if (!blob || blob.statusCode !== 200) {
       return process.env.VERCEL === '1' ? { ...EMPTY_STORE } : readLocalStore();
@@ -145,6 +145,7 @@ async function writeStore(store: KBStore): Promise<void> {
       throw new Error('Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN in Vercel.');
     }
 
+    const { put } = await import('@vercel/blob');
     await put(BLOB_STORE_PATH, JSON.stringify(store), {
       access: 'private',
       addRandomSuffix: false,

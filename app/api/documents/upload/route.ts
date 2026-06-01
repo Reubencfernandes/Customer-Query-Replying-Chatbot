@@ -1,6 +1,6 @@
 import { handleUpload, type HandleUploadBody } from '@vercel/blob/client';
 import { NextResponse } from 'next/server';
-import { getFileType } from '@/lib/parsers';
+import { getFileType } from '@/lib/file-meta';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

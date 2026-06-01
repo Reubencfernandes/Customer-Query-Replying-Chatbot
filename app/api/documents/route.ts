@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { del, get } from '@vercel/blob';
 import {
   readStore,
   addFileRecord,
@@ -9,12 +8,9 @@ import {
   type Chunk,
 } from '@/lib/kb-store';
 import {
-  extractText,
-  chunkText,
   getFileType,
   formatSize,
-} from '@/lib/parsers';
-import { embedDocuments } from '@/lib/cohere';
+} from '@/lib/file-meta';
 
 // pdf-parse / mammoth / xlsx require Node, not the edge runtime.
 export const runtime = 'nodejs';
@@ -55,6 +51,10 @@ async function createFileRecord(
   await addFileRecord(record);
 
   try {
+    const [{ extractText, chunkText }, { embedDocuments }] = await Promise.all([
+      import('@/lib/parsers'),
+      import('@/lib/cohere'),
+    ]);
     const text = await extractText(buffer, type);
     const chunkTexts = chunkText(text);
 
@@ -116,6 +116,7 @@ export async function POST(request: Request) {
     }
 
     try {
+      const { del, get } = await import('@vercel/blob');
       const blob = await get(blobPathname, { access: 'private', useCache: false });
       if (!blob || blob.statusCode !== 200) {
         return NextResponse.json({ error: 'Uploaded blob was not found.' }, { status: 404 });
