@@ -1,7 +1,8 @@
 'use client';
 
-import * as React from 'react';
 import { motion } from 'motion/react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import FileTypeIcon from './FileTypeIcon';
 import Badge from './Badge';
 import { ChatMessage } from '@/lib/kb-data';
@@ -38,7 +39,7 @@ function SourceCard({ name, type }: SourceCardProps) {
         {isFileType ? (
           <FileTypeIcon type={type} size={16} className="block" />
         ) : (
-          <span className="text-[13px] text-violet-500">✦</span>
+          <span className="text-[13px] text-violet-500">*</span>
         )}
       </span>
       <span className="font-medium truncate max-w-[150px]" title={name}>
@@ -55,95 +56,114 @@ interface MessageBubbleProps {
   message: ChatMessage;
 }
 
-// Lightweight visual parser for simple bold, backtick code, bullet points and
-// newlines. Renders as document-style flowing text (no bubble) for both turns.
-function parseContent(text: string) {
-  const lines = text.split('\n');
-  return lines.map((line, lineIdx) => {
-    // Markdown-style headings (#, ##, ###)
-    const headingMatch = line.match(/^\s*(#{1,3})\s+(.*)$/);
-    if (headingMatch) {
-      return (
-        <p
-          key={lineIdx}
-          className="text-[13px] font-bold uppercase tracking-wide text-neutral-900 mt-5 first:mt-0 mb-1"
-        >
-          {headingMatch[2]}
-        </p>
-      );
-    }
-
-    const isBullet = line.trim().startsWith('-') || line.trim().startsWith('•');
-    let cleanLine = line;
-    if (isBullet) {
-      cleanLine = line.trim().substring(1).trim();
-    }
-
-    const parts: React.ReactNode[] = [];
-    let currentPointer = 0;
-    const regex = /(\*\*.*?\*\*|`.*?`)/g;
-    let match;
-    let partKey = 0;
-
-    while ((match = regex.exec(cleanLine)) !== null) {
-      const matchStr = match[0];
-      const matchIndex = match.index;
-
-      if (matchIndex > currentPointer) {
-        parts.push(cleanLine.substring(currentPointer, matchIndex));
-      }
-
-      if (matchStr.startsWith('**') && matchStr.endsWith('**')) {
-        parts.push(
-          <strong key={partKey++} className="font-semibold text-neutral-900">
-            {matchStr.substring(2, matchStr.length - 2)}
-          </strong>
-        );
-      } else if (matchStr.startsWith('`') && matchStr.endsWith('`')) {
-        parts.push(
-          <code
-            key={partKey++}
-            className="font-mono text-[13px] font-medium px-1.5 py-0.5 rounded border bg-violet-50 border-violet-200 text-violet-700"
+function MarkdownContent({ text, compact = false }: { text: string; compact?: boolean }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => (
+          <h1 className="mt-6 first:mt-0 mb-2 text-xl font-bold tracking-tight text-neutral-950">
+            {children}
+          </h1>
+        ),
+        h2: ({ children }) => (
+          <h2 className="mt-5 first:mt-0 mb-2 text-lg font-bold tracking-tight text-neutral-950">
+            {children}
+          </h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="mt-5 first:mt-0 mb-1 text-[13px] font-bold uppercase tracking-wide text-neutral-900">
+            {children}
+          </h3>
+        ),
+        p: ({ children }) => (
+          <p className={`${compact ? 'mt-1 leading-6' : 'mt-3 leading-7'} first:mt-0 text-[15px] text-neutral-700`}>
+            {children}
+          </p>
+        ),
+        strong: ({ children }) => (
+          <strong className="font-semibold text-neutral-900">{children}</strong>
+        ),
+        em: ({ children }) => <em className="italic text-neutral-800">{children}</em>,
+        a: ({ href, children }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="font-medium text-violet-700 underline decoration-violet-300 underline-offset-2 hover:text-violet-900"
           >
-            {matchStr.substring(1, matchStr.length - 1)}
-          </code>
-        );
-      }
+            {children}
+          </a>
+        ),
+        ul: ({ children }) => (
+          <ul className={`${compact ? 'mt-2' : 'mt-3'} space-y-1.5 pl-5 text-[15px] text-neutral-700 list-disc`}>
+            {children}
+          </ul>
+        ),
+        ol: ({ children }) => (
+          <ol className={`${compact ? 'mt-2' : 'mt-3'} space-y-1.5 pl-5 text-[15px] text-neutral-700 list-decimal`}>
+            {children}
+          </ol>
+        ),
+        li: ({ children }) => (
+          <li className="leading-7 marker:text-violet-400">{children}</li>
+        ),
+        blockquote: ({ children }) => (
+          <blockquote className="mt-4 border-l-2 border-violet-300 pl-4 text-neutral-600">
+            {children}
+          </blockquote>
+        ),
+        code: ({ className, children, ...props }) => {
+          const isBlock = className?.startsWith('language-');
 
-      currentPointer = regex.lastIndex;
-    }
+          if (isBlock) {
+            return (
+              <code className={`block overflow-x-auto whitespace-pre p-4 text-[13px] ${className ?? ''}`} {...props}>
+                {children}
+              </code>
+            );
+          }
 
-    if (currentPointer < cleanLine.length) {
-      parts.push(cleanLine.substring(currentPointer));
-    }
-
-    if (isBullet) {
-      return (
-        <li
-          key={lineIdx}
-          className="list-disc ml-5 mt-1.5 leading-7 text-[15px] text-neutral-700 marker:text-violet-400"
-        >
-          <span>{parts.length > 0 ? parts : cleanLine}</span>
-        </li>
-      );
-    }
-
-    return (
-      <p
-        key={lineIdx}
-        className="leading-7 text-[15px] text-neutral-700 mt-3 first:mt-0 min-h-[1.25rem]"
-      >
-        {parts.length > 0 ? parts : cleanLine}
-      </p>
-    );
-  });
+          return (
+            <code
+              className="rounded border border-violet-200 bg-violet-50 px-1.5 py-0.5 font-mono text-[13px] font-medium text-violet-700"
+              {...props}
+            >
+              {children}
+            </code>
+          );
+        },
+        pre: ({ children }) => (
+          <pre className="mt-4 overflow-x-auto rounded-xl border border-neutral-200 bg-neutral-950 text-neutral-50 shadow-sm">
+            {children}
+          </pre>
+        ),
+        table: ({ children }) => (
+          <div className="mt-4 overflow-x-auto rounded-xl border border-neutral-200">
+            <table className="min-w-full border-collapse text-left text-sm text-neutral-700">
+              {children}
+            </table>
+          </div>
+        ),
+        th: ({ children }) => (
+          <th className="border-b border-neutral-200 bg-neutral-50 px-3 py-2 font-semibold text-neutral-900">
+            {children}
+          </th>
+        ),
+        td: ({ children }) => (
+          <td className="border-t border-neutral-100 px-3 py-2 align-top">{children}</td>
+        ),
+        hr: () => <hr className="my-5 border-neutral-200" />,
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
 }
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.sender === 'user';
 
-  // User turn — a compact, right-aligned pill so it stays distinct from the
-  // full-width assistant text without an avatar.
   if (isUser) {
     return (
       <motion.div
@@ -153,14 +173,12 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
         className="flex w-full justify-end mb-6"
       >
         <div className="max-w-[80%] rounded-2xl rounded-tr-md bg-neutral-100 border border-neutral-200/80 px-4 py-2.5">
-          {parseContent(message.text)}
+          <MarkdownContent text={message.text} compact />
         </div>
       </motion.div>
     );
   }
 
-  // Assistant turn — full-width, document-style flowing text (no bubble, no
-  // avatar). Citations sit underneath.
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -168,7 +186,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
       transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       className="w-full mb-10"
     >
-      <div>{parseContent(message.text)}</div>
+      <MarkdownContent text={message.text} />
 
       {message.sources && message.sources.length > 0 && (
         <div className="flex flex-wrap gap-1.5 mt-4">

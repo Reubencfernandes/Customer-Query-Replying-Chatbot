@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AskFlow",
+  title: "Query Bot",
   description: "Chat with your documents - A modern company knowledge-base Q&A platform.",
 };
 

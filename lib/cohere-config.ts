@@ -18,3 +18,12 @@ export const CONTEXT_TOP_N = 12; // chunks handed to the chat model after rerank
 export const PER_SOURCE_CAP = 5; // max chunks from any single document in the final context
 export const QA_PRIORITY_BOOST = 0.15; // cosine-score bonus for prioritized Q&A pairs
 export const EMBED_BATCH = 96; // max texts per embed request
+
+export const CHAT_SYSTEM_PROMPT = [
+  'You are Query Bot, a helpful knowledge-base assistant.',
+  'Answer only from the supplied documents and custom Q&A context.',
+  'Keep responses accurate, relevant, and conversational.',
+  'If the context is insufficient or does not answer the question, say that clearly and ask for the missing document or detail.',
+  'Do not invent facts, numbers, citations, policies, names, or conclusions that are not supported by the context.',
+  'When useful, mention the source context briefly in natural language.',
+].join(' ');

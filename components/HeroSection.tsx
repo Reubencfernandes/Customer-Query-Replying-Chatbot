@@ -11,6 +11,7 @@ import { useChatSession } from '@/lib/use-chat-session';
 export default function HeroSection() {
   const bloomRef = React.useRef<HTMLDivElement>(null);
   const threadRef = React.useRef<HTMLDivElement>(null);
+  const outsideTouchYRef = React.useRef<number | null>(null);
 
   // Inline conversation — runs the chat right here on `/` instead of routing
   // away to the dedicated /chat page.
@@ -36,6 +37,43 @@ export default function HeroSection() {
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
     }
   }, [messages, isTyping, active]);
+
+  const handleChatWheel = React.useCallback(
+    (e: React.WheelEvent<HTMLElement>) => {
+      const el = threadRef.current;
+      if (!active || !el || el.contains(e.target as Node)) return;
+      if (el.scrollHeight <= el.clientHeight) return;
+
+      el.scrollTop += e.deltaY;
+      e.preventDefault();
+    },
+    [active]
+  );
+
+  const handleChatTouchStart = React.useCallback(
+    (e: React.TouchEvent<HTMLElement>) => {
+      const el = threadRef.current;
+      if (!active || !el || el.contains(e.target as Node)) {
+        outsideTouchYRef.current = null;
+        return;
+      }
+
+      outsideTouchYRef.current = e.touches[0]?.clientY ?? null;
+    },
+    [active]
+  );
+
+  const handleChatTouchMove = React.useCallback((e: React.TouchEvent<HTMLElement>) => {
+    const el = threadRef.current;
+    const previousY = outsideTouchYRef.current;
+    const currentY = e.touches[0]?.clientY;
+    if (!el || previousY === null || currentY === undefined) return;
+    if (el.scrollHeight <= el.clientHeight) return;
+
+    el.scrollTop += previousY - currentY;
+    outsideTouchYRef.current = currentY;
+    e.preventDefault();
+  }, []);
 
   // GSAP-driven entrance + breathing on the bloom container.
   // The two pseudo-element layers keep drifting via CSS, so this composes on
@@ -110,6 +148,10 @@ export default function HeroSection() {
   return (
     <section
       id="hero"
+      onWheel={active ? handleChatWheel : undefined}
+      onTouchStart={active ? handleChatTouchStart : undefined}
+      onTouchMove={active ? handleChatTouchMove : undefined}
+      onTouchEnd={active ? () => { outsideTouchYRef.current = null; } : undefined}
       className={`relative min-h-screen flex flex-col items-center overflow-hidden transition-colors duration-700 ${
         active ? 'bg-white' : ''
       }`}
@@ -215,7 +257,7 @@ export default function HeroSection() {
                 </button>
               </form>
               <p className="text-[10px] text-white/45 text-center mt-2.5">
-                AskFlow prioritizes your custom Q&amp;A over document matches and cites its sources.
+                Query Bot prioritizes your custom Q&amp;A over document matches and cites its sources.
               </p>
             </div>
           </motion.div>

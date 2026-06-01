@@ -1,16 +1,16 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { get, put } from '@vercel/blob';
 import type { KBFile, KBPair } from './kb-data';
 
-// Server-side source of truth for the knowledge base: a single JSON file on disk.
-// Holds parsed document chunks + embeddings and Q&A pairs + embeddings.
-//
-// This is a dev/single-instance store. Serverless or multi-instance deployments
-// would need a real database / vector store — only this module would change.
+// Server-side source of truth for the knowledge base.
+// In Vercel production this is persisted as a private Vercel Blob object.
+// Local development without Blob credentials falls back to data/kb.json.
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const STORE_PATH = path.join(DATA_DIR, 'kb.json');
 const TMP_PATH = path.join(DATA_DIR, 'kb.json.tmp');
+const BLOB_STORE_PATH = 'query-bot/kb.json';
 
 export interface Chunk {
   id: string;
@@ -51,9 +51,27 @@ export interface RetrievalCandidate {
 
 const EMPTY_STORE: KBStore = { version: 1, files: [], qa: [] };
 
+function hasBlobConfig(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_OIDC_TOKEN);
+}
+
+function shouldUseBlob(): boolean {
+  if (hasBlobConfig()) return true;
+  return process.env.VERCEL === '1';
+}
+
+function normalizeStore(parsed: Partial<KBStore>): KBStore {
+  return {
+    version: 1,
+    files: parsed.files ?? [],
+    qa: parsed.qa ?? [],
+  };
+}
+
 // --- In-process write lock -------------------------------------------------
 // Chains every read-modify-write so concurrent route invocations in the same
-// Node process don't interleave and clobber each other. (Single process only.)
+// Node process don't interleave and clobber each other. Cross-instance writes
+// still need a database/vector store if this grows beyond a small admin tool.
 let queue: Promise<unknown> = Promise.resolve();
 
 function withLock<T>(fn: () => Promise<T>): Promise<T> {
@@ -71,14 +89,40 @@ async function ensureDataDir(): Promise<void> {
 }
 
 export async function readStore(): Promise<KBStore> {
+  if (shouldUseBlob()) {
+    return readBlobStore();
+  }
+
+  return readLocalStore();
+}
+
+async function readBlobStore(): Promise<KBStore> {
+  if (!hasBlobConfig()) {
+    throw new Error('Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN in Vercel.');
+  }
+
+  try {
+    const blob = await get(BLOB_STORE_PATH, { access: 'private', useCache: false });
+    if (!blob || blob.statusCode !== 200) {
+      return readLocalStore();
+    }
+
+    const raw = await new Response(blob.stream).text();
+    return normalizeStore(JSON.parse(raw) as Partial<KBStore>);
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      console.error('Failed to parse Blob kb.json, starting empty:', err);
+      return { ...EMPTY_STORE };
+    }
+    throw err;
+  }
+}
+
+async function readLocalStore(): Promise<KBStore> {
   try {
     const raw = await fs.readFile(STORE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as Partial<KBStore>;
-    return {
-      version: 1,
-      files: parsed.files ?? [],
-      qa: parsed.qa ?? [],
-    };
+    return normalizeStore(parsed);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
       return { ...EMPTY_STORE };
@@ -90,6 +134,21 @@ export async function readStore(): Promise<KBStore> {
 }
 
 async function writeStore(store: KBStore): Promise<void> {
+  if (shouldUseBlob()) {
+    if (!hasBlobConfig()) {
+      throw new Error('Vercel Blob is not configured. Add BLOB_READ_WRITE_TOKEN in Vercel.');
+    }
+
+    await put(BLOB_STORE_PATH, JSON.stringify(store), {
+      access: 'private',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      cacheControlMaxAge: 60,
+      contentType: 'application/json',
+    });
+    return;
+  }
+
   await ensureDataDir();
   // Atomic write: write to a temp file, then rename over the target.
   await fs.writeFile(TMP_PATH, JSON.stringify(store), 'utf8');

@@ -22,7 +22,7 @@ export default function Navbar() {
           <div className="flex-shrink-0">
             <Link href="/" className="group flex items-center">
               <span className="font-sans font-semibold text-base sm:text-lg tracking-tight text-neutral-950 transition-colors duration-150">
-                AskFlow
+                Query Bot
               </span>
             </Link>
           </div>

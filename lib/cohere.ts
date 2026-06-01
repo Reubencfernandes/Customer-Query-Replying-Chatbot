@@ -3,6 +3,7 @@ import {
   EMBED_MODEL,
   RERANK_MODEL,
   CHAT_MODEL,
+  CHAT_SYSTEM_PROMPT,
   EMBED_BATCH,
 } from './cohere-config';
 
@@ -89,7 +90,10 @@ export async function chatWithDocuments(
   const co = getClient();
   const res = await co.chat({
     model: CHAT_MODEL,
-    messages: [{ role: 'user', content: query }],
+    messages: [
+      { role: 'system', content: CHAT_SYSTEM_PROMPT },
+      { role: 'user', content: query },
+    ],
     documents,
   });
 
